@@ -1,114 +1,119 @@
-package com.airbus.management.service;
+@Service
+public class StudentService {
 
-import java.util.ArrayList;
-import java.util.List;
+    @Autowired
+    private StudentRepository studentRepository;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Repository;
+    @Autowired
+    private CourseRepository courseRepository;
 
-import com.airbus.management.exception.ProductAlreadyExistsException;
-import com.airbus.management.model.Product;
-import com.airbus.management.repository.ProductServiceRepository;
+    @Autowired
+    private LogEntryRepository logEntryRepository;
 
-@Repository
-public class ProductServiceImpl implements ProductService {
+     public void selectCourse(Long studentId, Long courseId) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
 
-	@Autowired
-	ProductServiceRepository productServiceRepository;
-	
-	@Override
-	public List<Product> getAllProducts() {
-		// TODO Auto-generated method stub
-		
-		List<Product> result=new ArrayList<>();
-		
-		try {
-			result= productServiceRepository.getAllProducts();
-		}
-		catch(Exception e)
-		{
-			e.printStackTrace();
-		}
-		return result;
-		
-	}
+        validateCourseSelection(student);
 
-	@Override
-	public List<Product> getProductsByCategory(String categoryName) {
-		// TODO Auto-generated method stub
-		List<Product> result=new ArrayList<>();
-		
-		try {
-			result= productServiceRepository.getProductsByCategory(categoryName);
-		}
-		catch(Exception e)
-		{
-			e.printStackTrace();
-		}
-		return result;
-	}
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
 
-	@Override
-	public boolean addProduct(Product productDetails) throws ProductAlreadyExistsException {
-		// TODO Auto-generated method stub
-		boolean result;
-		
-		try {
-			productServiceRepository.addProduct(productDetails);
-			result=true;
-		}
-		catch(Exception e)
-		{
-			e.printStackTrace();
-			result=false;
-			throw new ProductAlreadyExistsException("Product Already Exists!");
-		}
-		
-		return result;
-	}
+        student.getCourses().add(course);
+        studentRepository.save(student);
+    }
 
-	@Override
-	public boolean updateProduct(Product productDetails, String productId) {
-		// TODO Auto-generated method stub
-		
-		int result;
-		
-		try {
-			result=productServiceRepository.updateProduct(productDetails,productId);
-		}
-		catch(Exception e)
-		{
-			e.printStackTrace();
-			result=0;
-		}
-		
-		if(result==0)
-		{
-			return false;
-		}
-		return true;
-	}
+    private void validateCourseSelection(Student student) {
+        // Validate business rule: Student should not select more than three courses
+        if (student.getCourses().size() >= 3) {
+            throw new RuntimeException("Student cannot register for more than three courses");
+        }
+    }
 
-	@Override
-	public boolean deleteProduct(String productId) {
-		// TODO Auto-generated method stub
-		int result;
-		
-		try {
-			result=productServiceRepository.deleteProduct(productId);
-		}
-		catch(Exception e)
-		{
-			e.printStackTrace();
-			result=0;
-		}
-		
-		if(result==0)
-		{
-			return false;
-		}
-		return true;
-	}
-	
+    public void logHours(Long studentId, LogEntryDto logEntryDto) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
 
-}
+        validateLogEntry(student, logEntryDto);
+
+        LogEntry logEntry = new LogEntry();
+        logEntry.setStudent(student);
+        logEntry.setDate(logEntryDto.getDate());
+        logEntry.setCategory(logEntryDto.getCategory());
+        logEntry.setDescription(logEntryDto.getDescription());
+        logEntry.setTimeSpent(logEntryDto.getTimeSpent());
+
+        logEntryRepository.save(logEntry);
+    }
+
+    private void validateLogEntry(Student student, LogEntryDto logEntryDto) {
+        // Validate business rules for logging hours
+        LocalDate today = LocalDate.now();
+        if (!logEntryDto.getDate().equals(today)) {
+            throw new RuntimeException("Log entry date must be today");
+        }
+
+        // Check if the student has already logged hours for the same date
+        List<LogEntry> existingEntries = logEntryRepository.findByStudentIdAndDate(
+                student.getId(), logEntryDto.getDate());
+
+        if (!existingEntries.isEmpty()) {
+            throw new RuntimeException("Student has already logged hours for today");
+        }
+    }
+
+    public List<LogEntry> getLogEntries(Long studentId) {
+        // Retrieve log entries for the given student
+        return logEntryRepository.findByStudentId(studentId);
+    }
+
+    public void updateLog(Long studentId, Long logEntryId, LogEntryDto logEntryDto) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+
+        LogEntry logEntry = logEntryRepository.findById(logEntryId)
+                .orElseThrow(() -> new RuntimeException("Log entry not found"));
+
+        // Validate that the log entry belongs to the student
+        validateLogOwnership(student, logEntry);
+
+        // Update log entry fields
+        updateLogEntryFields(logEntry, logEntryDto);
+
+        logEntryRepository.save(logEntry);
+    }
+
+    public void deleteLog(Long studentId, Long logEntryId) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+
+        LogEntry logEntry = logEntryRepository.findById(logEntryId)
+                .orElseThrow(() -> new RuntimeException("Log entry not found"));
+
+        // Validate that the log entry belongs to the student
+        validateLogOwnership(student, logEntry);
+
+        // Remove log entry from the student's logEntries list
+        student.getLogEntries().remove(logEntry);
+
+        // Delete the log entry
+        logEntryRepository.delete(logEntry);
+    }
+
+    private void validateLogOwnership(Student student, LogEntry logEntry) {
+        // Validate that the log entry belongs to the student
+        if (!student.getLogEntries().contains(logEntry)) {
+            throw new RuntimeException("Log entry does not belong to the student");
+        }
+    }
+
+    private void updateLogEntryFields(LogEntry logEntry, LogEntryDto logEntryDto) {
+        // Update log entry fields
+        logEntry.setDate(logEntryDto.getDate());
+        logEntry.setCategory(logEntryDto.getCategory());
+        logEntry.setDescription(logEntryDto.getDescription());
+        logEntry.setTimeSpent(logEntryDto.getTimeSpent());
+
+        // Update other fields as needed
+        // logEntry.setOtherField(logEntryDto.getOtherField());
+    } } 
