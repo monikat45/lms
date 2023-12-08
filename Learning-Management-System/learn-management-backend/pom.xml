@@ -8,10 +8,10 @@
 		<version>2.5.5</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.airbus</groupId>
-	<artifactId>airbus-management-spring</artifactId>
+	<groupId>com.lms</groupId>
+	<artifactId>learn-management-backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>airbus-management-spring</name>
+	<name>learn-management-backend</name>
 	<description>Demo project for Spring Boot</description>
 	<properties>
 		<java.version>1.8</java.version>
