@@ -25,4 +25,3 @@
 - Students can log multiple hours for the same day.
 - Students can update and delete a log entry.
 
-Feel free to add more sections such as installation, usage, contributing, and license information to this readme file.
